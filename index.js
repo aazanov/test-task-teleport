@@ -2,15 +2,15 @@
 //Created 29.01.2017
 //Author Azanov A.A.
 
-var par = require('./param.js');
+var param = require('./param.js');
 var server = require('./app.js');
 var http = require('http');
-var io = require('socket.io').listen(par.socketPort);
+var io = require('socket.io').listen(param.socketPort);
 
 
 //создаем сервер для контента. Частично задействуем Jade
-http.createServer(server).listen(par.httpPort);
-console.log('Server started at port ' + par.httpPort);
+http.createServer(server).listen(param.httpPort);
+console.log('Server started at port ' + param.httpPort);
 
 //глобальный объект локальных функций
 var app = {
@@ -24,13 +24,26 @@ var app = {
             ,name: "name"
         }
     }
-    ,checkCoords(coords){
-
+    ,checkCoords(coords, callback){
+        /*
+        Тут может быть функция проверки координат на нахождение на суше.
+        Как вариант, воспользоваться сервисом http://maps.googleapis.com/maps/api/staticmap
+        с последующим анализом цвета полученной по координатам точки.
+        Далее, по callback, если точка синяя, тут же генерируем новую, если нет,
+        отправляем на клиента.
+        */
     }
     ,startGenerating(totalPoints, socket){
         socket.generatorTimer = setInterval(function(){
             socket.emit('addPoint', app.createCoords());
         }, 60000/totalPoints)
+    }
+    ,stopGenerating(socket){
+        if (socket.generatorTimer){
+            clearInterval(socket.generatorTimer);
+            socket.generatorTimer = null;
+            console.log('Generating is stopped');
+        }
     }
 }
 
@@ -43,23 +56,18 @@ io.sockets.on('connection', function (socket) {
 
     socket.on('disconnect', function(){
         console.log('Client disconnected');
-        clearInterval(socket.generatorTimer);
+        app.stopGenerating(socket);
     });
 
-    socket.on('startGenerating', function(msg){
+    socket.on('generating', function(msg){
         console.log(msg);
-        app.startGenerating(100, socket);
-
+        if (typeof(msg) !== 'object'){
+            return;
+        }
+        if (msg.action === 'start'){
+            app.startGenerating(msg.velocity, socket);
+        } else {
+            app.stopGenerating(socket);
+        }
     });
-
-
 });
-
-console.log(new Date().getTime());
-var i=0
-for (i=0; i<10000; i++){
-    app.createCoords();
-}
-console.log(new Date().getTime(), i);
-
-console.dir(app.createCoords());

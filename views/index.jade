@@ -1,5 +1,14 @@
 extends layout
 
 block content
-  h1= title
-  p Welcome to #{title}
+    h1= title
+    p Welcome to #{title}
+    label Точек в секунду, по умолчанию 10000
+        br
+        input#velocity(type='number' placeholder='10000')
+    input#startButton(type='button')
+    p#status
+    div#map
+    script(src='https://api-maps.yandex.ru/2.1/?lang=ru-RU' type='text/javascript')
+    script(src='javascripts/scripts.js')
+  

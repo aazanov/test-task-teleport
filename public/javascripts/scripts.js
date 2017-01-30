@@ -1,10 +1,15 @@
-//JS Document
+//JS document
+//Created 29.01.2017
+//Author Azanov A.A.
 
+//Кешируем DOM объекты
 var cacheElements = {
     startButton: document.querySelector('#startButton')
     ,status: document.querySelector('#status')
+    ,velocity: document.querySelector('#velocity')
 }
 
+//Глобальная переменная локальных функций
 var app = {
     socketPort: document.querySelector('meta[name="socketPort"]').getAttribute('content')
     ,socketHost: document.location.hostname
@@ -16,35 +21,57 @@ var app = {
         if (typeof(properties) !== 'object'){
             return;
         }
-        console.log(ymaps);
-        var myGeoObject = new ymaps.Placemark([properties.coords.lat, properties.coords.long], {
-                hintContent: properties.name,
-                balloonContent: properties.name
-            });
-        app.myMap.geoObjects.add(myGeoObject);
+        var geoDescription = {
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature"
+                    ,"id": app.totalPoints
+                    ,"geometry": {
+                        "type": "Point"
+                        ,"coordinates": [properties.coords.lat, properties.coords.long]
+                    }
+                    ,"properties": {
+                        "balloonContent": properties.name
+                        ,"clusterCaption": "Метка " + app.totalPoints
+                        ,"hintContent": properties.coords.lat + ', ' + properties.coords.long
+                    }
+                }
+            ]
+        }
+        app.objectManager.add(geoDescription);
         app.totalPoints ++;
         app.setStatus('На карту добавлено ' + app.totalPoints + ' маркеров');
     }
 }
 
-
-
-ymaps.ready(init);
+//Изменение состояний кнопки управления
+cacheElements.startButton.changeState = function(){
+    if (this.state === 'stop' || !this.state){
+        this.value = 'Начать генерацию';
+        this.state = 'start';
+    } else {
+        this.value = 'Остановить генерацию';
+        this.state = 'stop';
+    }
+}
+cacheElements.startButton.changeState();
 
 // инициализируем карту
-function init(){
+ymaps.ready(function(){
     var myMap = new ymaps.Map ("map", {
         center: [55.76, 37.64],
         zoom: 7
     });
     myMap.controls.add('zoomControl');
     app.myMap = myMap;
-    var myGeoObject = new ymaps.Placemark([55.76, 37.64], {
-            hintContent: 'Москва!',
-            balloonContent: 'Столица России'
-        });
-        app.myMap.geoObjects.add(myGeoObject);
-}
+    //Добавляем ObjectManager для ускорения быстродействия Yandex Maps
+    app.objectManager = new ymaps.ObjectManager({
+        clusterize: false
+        ,gridSize: 32
+    });
+    app.myMap.geoObjects.add(app.objectManager);
+});
 
 //Создание сокета
 (function(){
@@ -69,5 +96,10 @@ cacheElements.startButton.onclick = function(){
     if (!app.socket){
         return;
     }
-    app.socket.emit('startGenerating', 'We are going to start');
+    var parameters = {
+        action: this.state
+        ,velocity: parseInt(cacheElements.velocity.value, 10) || 10000
+    }
+    app.socket.emit('generating', parameters);
+    this.changeState();
 };
